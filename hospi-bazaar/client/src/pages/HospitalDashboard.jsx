@@ -3,7 +3,7 @@ import { api, ApiError } from '../api.js';
 import { Link } from 'react-router-dom';
 import { Alert, Loading, StatusBadge, Timeline, useToast } from '../components/ui.jsx';
 import { Stat } from '../components/common.jsx';
-import { useLoad } from '../lib.js';
+import { useAutoRefresh, useLoad } from '../lib.js';
 
 const STATUS_COPY = {
   unverified: 'You can browse, request quotes and negotiate now. Ask for verification before you place your first order.',
@@ -30,6 +30,7 @@ export default function HospitalDashboard() {
 
   const load = () => api('/hospitals/me').then(setData).catch((e) => setError(e.message));
   useEffect(() => { load(); }, []);
+  useAutoRefresh(load);
 
   async function requestVerification() {
     setBusy(true); setError('');

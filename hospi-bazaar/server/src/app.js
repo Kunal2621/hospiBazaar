@@ -17,6 +17,7 @@ app.use(express.json({ limit: '1mb', verify: (req, _res, buf) => { req.rawBody =
 app.use('/uploads', express.static(config.uploadsDir, { index: false, setHeaders: (res) => { res.set('X-Content-Type-Options', 'nosniff'); res.set('Cross-Origin-Resource-Policy', 'cross-origin'); } }));
 
 if (config.env !== 'test') {
+    app.use('/api/auth/forgot-password', rateLimit({ windowMs: 15 * 60 * 1000, limit: 5, standardHeaders: true, legacyHeaders: false, message: { error: 'Too many requests. Try again in a few minutes.' } }));
   // Slow down password guessing and registration spam.
   app.use('/api/auth', rateLimit({ windowMs: 15 * 60 * 1000, limit: 100, standardHeaders: true, legacyHeaders: false }));
 }

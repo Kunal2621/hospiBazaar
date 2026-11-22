@@ -49,6 +49,7 @@ export default function Login() {
           <Alert>{error}</Alert>
           <TextField label="Email" type="email" autoComplete="email" error={fieldErrors.email} {...bind('email')} />
           <TextField label="Password" type="password" autoComplete="current-password" error={fieldErrors.password} {...bind('password')} />
+          <p className="small" style={{ marginTop: '-0.5rem' }}><Link to="/forgot-password" className="text-link">Forgot your password?</Link></p>
           <button className="btn btn--block" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button>
           <p className="muted small">
             New to Hospi Bazaar? <Link to="/register/hospital" className="text-link">Register your hospital</Link> or <Link to="/register/supplier" className="text-link">apply as a supplier</Link>.

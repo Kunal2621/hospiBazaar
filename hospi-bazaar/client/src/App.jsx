@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import { PublicLayout, RequireType } from './components/layouts.jsx';
 import Landing from './pages/Landing.jsx';
 import Login from './pages/Login.jsx';
+import { ForgotPassword, ResetPassword } from './pages/PasswordReset.jsx';
 import RegisterHospital from './pages/RegisterHospital.jsx';
 import RegisterSupplier from './pages/RegisterSupplier.jsx';
 import Marketplace from './pages/Marketplace.jsx';
@@ -22,6 +23,8 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
 
       <Route element={<PublicLayout />}>
         <Route path="/" element={<Landing />} />

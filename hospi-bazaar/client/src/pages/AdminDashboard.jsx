@@ -4,6 +4,7 @@ import { Check, ExternalLink, FileText } from 'lucide-react';
 import { api, ApiError } from '../api.js';
 import { useAuth } from '../auth.jsx';
 import { Alert, AreaField, Dialog, Loading, StatusBadge, useToast } from '../components/ui.jsx';
+import { useAutoRefresh } from '../lib.js';
 
 const label = (s) => s.replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase());
 const canDecide = (u) => u.adminRole === 'super_admin' || u.adminRole === 'verifier';
@@ -35,6 +36,7 @@ function Queue({ kind }) {
   }, [kind, status]);
 
   useEffect(() => { setRows(null); setSelected(null); load(); }, [load]);
+  useAutoRefresh(load);
 
   return (
     <>

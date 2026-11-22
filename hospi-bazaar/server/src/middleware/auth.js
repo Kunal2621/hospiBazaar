@@ -61,6 +61,13 @@ const authenticate = asyncHandler(async (req, _res, next) => {
 
   const ctx = await loadContext(payload.sub);
   if (!ctx || ctx.status !== 'active') throw new ApiError(401, 'Account not available');
+    // A password change or reset signs out every session that started before it.
+  // UNIX_TIMESTAMP is read in the same database time zone that NOW() wrote it in, so the
+  // comparison stays right even when Node and MySQL run in different time zones.
+  const [[pw]] = await pool.query('SELECT UNIX_TIMESTAMP(password_changed_at) AS changed_at FROM users WHERE id = ?', [ctx.id]);
+  if (pw.changed_at && payload.iat < Math.floor(Number(pw.changed_at))) {
+    throw new ApiError(401, 'Your password was changed. Please sign in again.');
+  }
   req.user = ctx;
   next();
 });

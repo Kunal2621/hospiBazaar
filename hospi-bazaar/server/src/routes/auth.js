@@ -1,11 +1,14 @@
 'use strict';
+const crypto = require('crypto');
 
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const { pool, withTransaction } = require('../db');
-const { z, str, optionalStr, email, phone, pincode, pan, gstin, ifsc, url, userSchema } = require('../utils/validation');
+const { z, str, optionalStr, email, phone, pincode, pan, gstin, ifsc, url,password: passwordRule, userSchema } = require('../utils/validation');
 const { ApiError, asyncHandler } = require('../utils/errors');
 const { audit } = require('../utils/audit');
+const config = require('../config');
+const { sendMail } = require('../services/mailer');
 const { signToken, loadContext, authenticate } = require('../middleware/auth');
 
 const router = express.Router();
@@ -231,6 +234,47 @@ router.post('/login', asyncHandler(async (req, res) => {
   await pool.query(`UPDATE users SET last_login_at = NOW() WHERE id = ?`, [row.id]);
   const user = await loadContext(row.id);
   res.json({ token: signToken(row.id), user });
+}));
+
+// ------------------------------------------------------------ Password reset
+
+const RESET_MINUTES = 60;
+const hashToken = (t) => crypto.createHash('sha256').update(t).digest('hex');
+
+// Always answers the same way, so nobody can use this to find out which emails are registered.
+router.post('/forgot-password', asyncHandler(async (req, res) => {
+  const { email: em } = z.object({ email }).parse(req.body);
+  const [[u]] = await pool.query(`SELECT id, full_name, status FROM users WHERE email = ?`, [em]);
+  if (u && u.status === 'active') {
+    const token = crypto.randomBytes(32).toString('hex');
+    await pool.query(`UPDATE password_resets SET used_at = NOW() WHERE user_id = ? AND used_at IS NULL`, [u.id]);
+    await pool.query(
+      `INSERT INTO password_resets (user_id, token_hash, expires_at, requested_ip) VALUES (?, ?, DATE_ADD(NOW(), INTERVAL ? MINUTE), ?)`,
+      [u.id, hashToken(token), RESET_MINUTES, req.ip]
+    );
+    const link = `${config.clientOrigin}/reset-password?token=${token}`;
+    try {
+      await sendMail({
+        to: em, subject: 'Reset your Hospi Bazaar password',
+        text: `Hello ${u.full_name},\n\nUse this link to choose a new password. It works once and expires in ${RESET_MINUTES} minutes:\n\n${link}\n\nIf you did not ask for this, ignore this email. Your password stays the same.`,
+      });
+    } catch (e) { console.error('Password reset email failed:', e.message); }
+  }
+  res.json({ ok: true });
+}));
+
+router.post('/reset-password', asyncHandler(async (req, res) => {
+  const d = z.object({ token: z.string().min(20).max(200), password: passwordRule }).parse(req.body);
+  const hash = await bcrypt.hash(d.password, 12);
+  await withTransaction(async (conn) => {
+    const [[r]] = await conn.query(
+      `SELECT id, user_id FROM password_resets WHERE token_hash = ? AND used_at IS NULL AND expires_at > NOW() FOR UPDATE`, [hashToken(d.token)]);
+    if (!r) throw new ApiError(400, 'This reset link is invalid or has expired. Ask for a new one.');
+    await conn.query(`UPDATE users SET password_hash = ?, password_changed_at = NOW() WHERE id = ?`, [hash, r.user_id]);
+    await conn.query(`UPDATE password_resets SET used_at = NOW() WHERE user_id = ? AND used_at IS NULL`, [r.user_id]);
+    await audit(conn, { actorId: r.user_id, action: 'auth.password_reset', entityType: 'user', entityId: r.user_id, ip: req.ip });
+  });
+  res.json({ ok: true });
 }));
 
 router.get('/me', authenticate, (req, res) => res.json({ user: req.user }));

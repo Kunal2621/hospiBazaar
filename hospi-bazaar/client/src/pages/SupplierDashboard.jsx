@@ -4,7 +4,7 @@ import { api, ApiError } from '../api.js';
 import { Link } from 'react-router-dom';
 import { Alert, Loading, StatusBadge, Timeline, useToast } from '../components/ui.jsx';
 import { Stat } from '../components/common.jsx';
-import { inr, useLoad } from '../lib.js';
+import { inr, useAutoRefresh, useLoad } from '../lib.js';
 
 const STATUS_COPY = {
   pending: 'We have received your application. A verifier will pick it up soon.',
@@ -36,6 +36,7 @@ export default function SupplierDashboard() {
     .then(([me, cl]) => { setData(me); setChecks(cl.checks); })
     .catch((e) => setError(e.message));
   useEffect(() => { load(); }, []);
+  useAutoRefresh(load);
 
   async function reapply() {
     setBusy(true); setError('');
