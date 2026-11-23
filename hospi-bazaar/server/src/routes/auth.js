@@ -9,6 +9,7 @@ const { ApiError, asyncHandler } = require('../utils/errors');
 const { audit } = require('../utils/audit');
 const config = require('../config');
 const { sendMail } = require('../services/mailer');
+const notify = require('../services/notify');
 const { signToken, loadContext, authenticate } = require('../middleware/auth');
 
 const router = express.Router();
@@ -81,6 +82,8 @@ router.post('/register/hospital', asyncHandler(async (req, res) => {
       [await latestTerms(conn, 'buyer'), hr.insertId, ur.insertId, req.ip]
     );
     await audit(conn, { actorId: ur.insertId, action: 'hospital.registered', entityType: 'hospital', entityId: hr.insertId, ip: req.ip });
+        await notify.toAdmins(conn, { event: 'hospital_registered', title: `New hospital registered: ${h.hospital_name}`, body: `${h.city}, ${h.state}. Contact: ${u.full_name}, 
+          ${u.email}. It will ask for verification before its first order.`, entityType: 'hospital', entityId: hr.insertId }, ['super_admin', 'verifier']);
     return ur.insertId;
   });
 
@@ -212,6 +215,8 @@ router.post('/register/supplier', asyncHandler(async (req, res) => {
       [await latestTerms(conn, 'supplier'), supplierId, ur.insertId, req.ip]
     );
     await audit(conn, { actorId: ur.insertId, action: 'supplier.registered', entityType: 'supplier', entityId: supplierId, ip: req.ip });
+        await notify.toAdmins(conn, { event: 'supplier_registered', title: `New supplier waiting for verification: ${s.company_name}`, body: `${s.city}, ${s.state}. Contact: ${u.full_name}, 
+          ${u.email}. Open Suppliers to start verification.`, entityType: 'supplier', entityId: supplierId }, ['super_admin', 'verifier']);
     return ur.insertId;
   });
 

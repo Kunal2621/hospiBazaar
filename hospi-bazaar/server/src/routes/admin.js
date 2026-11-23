@@ -7,6 +7,7 @@ const { ApiError, asyncHandler } = require('../utils/errors');
 const { audit } = require('../utils/audit');
 const { authenticate, requireType, requireAdminRole } = require('../middleware/auth');
 const { requiredChecks, failedChecks } = require('../utils/verification');
+const notify = require('../services/notify');
 
 const router = express.Router();
 router.use(authenticate, requireType('admin'), requireAdminRole('verifier', 'support'));
@@ -92,6 +93,8 @@ router.post('/suppliers/:id/start-verification', requireAdminRole('verifier'), a
     from: ['pending'], action: 'supplier.verification_started',
     apply: async (conn, id) => {
       await conn.query(`UPDATE supplier_verification SET verification_status = 'under_verification', verified_by = ? WHERE supplier_id = ?`, [req.user.id, id]);
+            await notify.toSupplier(conn, id, { event: 'supplier_verification_started', title: 'We have started verifying your account',
+               body: 'Our team is checking your documents. We will tell you as soon as it is done.' });
       return { audit: { verification_status: 'under_verification' }, response: { verification_status: 'under_verification' } };
     },
   });
@@ -125,6 +128,8 @@ router.post('/suppliers/:id/verify', requireAdminRole('verifier'), asyncHandler(
         [JSON.stringify(body.checklist), req.user.id, id]
       );
       await conn.query(`UPDATE suppliers SET account_status = 'active' WHERE id = ?`, [id]);
+            await notify.toSupplier(conn, id, { event: 'supplier_verified', title: 'Your supplier account is verified', body: 'You can now list products and receive RFQs and orders.' });
+      await notify.toAdmins(conn, { event: 'supplier_verified', title: 'A supplier was verified', body: `Verified by ${req.user.fullName || 'an admin'}.`, entityType: 'supplier', entityId: id }, ['super_admin']);
       return { audit: { verification_status: 'verified', checklist: body.checklist }, response: { verification_status: 'verified' } };
     },
   });
@@ -148,6 +153,7 @@ router.post('/suppliers/:id/reject', requireAdminRole('verifier'), asyncHandler(
         [body.checklist ? JSON.stringify(body.checklist) : null, req.user.id, body.reason, id]
       );
       await conn.query(`UPDATE suppliers SET account_status = 'pending' WHERE id = ?`, [id]);
+            await notify.toSupplier(conn, id, { event: 'supplier_rejected', title: 'Your supplier account needs changes', body: body.reason });
       return { audit: { verification_status: 'rejected', reason: body.reason }, response: { verification_status: 'rejected' } };
     },
   });
@@ -200,6 +206,8 @@ router.post('/hospitals/:id/verify', requireAdminRole('verifier'), asyncHandler(
         `UPDATE hospitals SET verification_status = 'verified', verified_at = NOW(), verified_by = ?, rejection_reason = NULL WHERE id = ?`,
         [req.user.id, id]
       );
+            await notify.toHospital(conn, id, { event: 'hospital_verified', title: 'Your hospital is verified', body: 'You can now place orders.' });
+      await notify.toAdmins(conn, { event: 'hospital_verified', title: 'A hospital was verified', body: `Verified by ${req.user.fullName || 'an admin'}.`, entityType: 'hospital', entityId: id }, ['super_admin']);
       return { verification_status: 'verified' };
     },
   });
@@ -215,6 +223,7 @@ router.post('/hospitals/:id/reject', requireAdminRole('verifier'), asyncHandler(
         `UPDATE hospitals SET verification_status = 'rejected', verified_at = NULL, verified_by = ?, rejection_reason = ? WHERE id = ?`,
         [req.user.id, reason, id]
       );
+            await notify.toHospital(conn, id, { event: 'hospital_rejected', title: 'Your hospital verification needs changes', body: reason });
       return { verification_status: 'rejected', reason };
     },
   });

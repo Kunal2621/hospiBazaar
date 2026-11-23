@@ -139,7 +139,8 @@ export function NotificationBell({ homePath }) {
   const markAll = () => api('/notifications/read-all', { method: 'POST' }).then(() => { setUnread(0); setData((l) => l && l.map((n) => ({ ...n, is_read: true }))); });
   const target = (n) => {
     const base = homePath;
-    const map = { order: `${base}/orders/${n.entity_id}`, rfq: `${base}/rfqs/${n.entity_id}`, negotiation: `${base}/negotiations/${n.entity_id}`, service_request: `${base}/service/${n.entity_id}`, product: `${base}/products`, dispute: `${base}/disputes`, manual_order_request: `${base}/manual` };
+    const map = { order: `${base}/orders/${n.entity_id}`, rfq: `${base}/rfqs/${n.entity_id}`, negotiation: `${base}/negotiations/${n.entity_id}`, 
+    service_request: `${base}/service/${n.entity_id}`, product: `${base}/products`, dispute: `${base}/disputes`, manual_order_request: `${base}/manual`, supplier: `${base}/suppliers`, hospital: `${base}/hospitals`  };
     return map[n.entity_type] || base;
   };
 

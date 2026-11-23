@@ -4,6 +4,7 @@ const express = require('express');
 const { pool, withTransaction } = require('../db');
 const { ApiError, asyncHandler } = require('../utils/errors');
 const { audit } = require('../utils/audit');
+const notify = require('../services/notify');
 const { authenticate, requireHospitalRole } = require('../middleware/auth');
 
 const router = express.Router();
@@ -34,6 +35,9 @@ router.post('/me/request-verification', requireHospitalRole('hospital_admin', 'p
       actorId: req.user.id, action: 'hospital.verification_requested', entityType: 'hospital', entityId: id,
       oldValues: { verification_status: h.verification_status }, newValues: { verification_status: 'under_review' }, ip: req.ip,
     });
+        const [[hn]] = await conn.query(`SELECT hospital_name FROM hospitals WHERE id = ?`, [id]);
+    await notify.toAdmins(conn, { event: 'hospital_verification_requested', title: `${hn.hospital_name} asked for verification`, 
+      body: 'Open Hospitals to review and verify before its first order.', entityType: 'hospital', entityId: id }, ['super_admin', 'verifier']);
   });
   res.json({ verification_status: 'under_review' });
 }));
