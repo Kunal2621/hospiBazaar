@@ -34,8 +34,14 @@ async function autoConfirmDeliveries() {
 }
 
 let transport;
+let sending = false;
 async function sendPendingEmails() {
-  if (!config.smtp.host) return 0;
+  if (!config.smtp.host || sending) return 0;
+  sending = true;
+  try { return await sendBatch(); } finally { sending = false; }
+}
+
+async function sendBatch() {
   transport ||= nodemailer.createTransport({
     host: config.smtp.host, port: config.smtp.port, secure: config.smtp.port === 465,
     auth: config.smtp.user ? { user: config.smtp.user, pass: config.smtp.pass } : undefined,
@@ -67,6 +73,9 @@ function start(everyMs = 5 * 60 * 1000) {
   const t = setInterval(runAll, everyMs);
   t.unref();
   setTimeout(runAll, 5000).unref();
+  // Emails go out within about 15 seconds instead of waiting for the 5-minute round.
+  const m = setInterval(() => sendPendingEmails().catch((e) => console.error('Email job failed:', e.message)), 15 * 1000);
+  m.unref();
 }
 
 module.exports = { runAll, start, expireQuotations, autoConfirmDeliveries, sendPendingEmails };
