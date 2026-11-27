@@ -16,6 +16,10 @@ export function AuthProvider({ children }) {
       .finally(() => setLoading(false));
   }, []);
 
+
+    // Re-reads the signed-in user, for example after the email has been confirmed in another tab.
+  const refresh = useCallback(() => api('/auth/me').then((d) => setUser(d.user)).catch(() => {}), []);
+
   // Used after login / registration: the API returns { token, user }.
   const signIn = useCallback((data) => {
     setToken(data.token);
@@ -27,7 +31,7 @@ export function AuthProvider({ children }) {
     setUser(null);
   }, []);
 
-  return <AuthContext.Provider value={{ user, loading, signIn, signOut }}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={{ user, loading, signIn, signOut, refresh }}>{children}</AuthContext.Provider>;
 }
 
 /** Where each kind of user lands after signing in. */

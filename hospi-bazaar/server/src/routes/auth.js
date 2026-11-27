@@ -86,7 +86,7 @@ router.post('/register/hospital', asyncHandler(async (req, res) => {
           ${u.email}. It will ask for verification before its first order.`, entityType: 'hospital', entityId: hr.insertId }, ['super_admin', 'verifier']);
     return ur.insertId;
   });
-
+   await sendVerification(userId, u.email, u.full_name);
   const user = await loadContext(userId);
   res.status(201).json({ token: signToken(userId), user });
 }));
@@ -219,12 +219,65 @@ router.post('/register/supplier', asyncHandler(async (req, res) => {
           ${u.email}. Open Suppliers to start verification.`, entityType: 'supplier', entityId: supplierId }, ['super_admin', 'verifier']);
     return ur.insertId;
   });
+    await sendVerification(userId, u.email, u.full_name);
 
   const user = await loadContext(userId);
   res.status(201).json({ token: signToken(userId), user });
 }));
 
+// ------------------------------------------------------------ Email verification
+
+const VERIFY_HOURS = 24;
+const RESEND_SECONDS = 60;
+
+/** Creates a fresh link (older ones stop working) and emails it. Never throws: a failed email must not undo a registration. */
+async function sendVerification(userId, em, name) {
+  try {
+    const token = crypto.randomBytes(32).toString('hex');
+    await pool.query(`UPDATE email_verifications SET used_at = NOW() WHERE user_id = ? AND used_at IS NULL`, [userId]);
+    await pool.query(
+      `INSERT INTO email_verifications (user_id, token_hash, expires_at) VALUES (?, ?, DATE_ADD(NOW(), INTERVAL ? HOUR))`,
+      [userId, hashToken(token), VERIFY_HOURS]
+    );
+    const link = `${config.clientOrigin}/verify-email?token=${token}`;
+    await sendMail({
+      to: em, subject: 'Verify your email for Hospi Bazaar',
+      text: `Hello ${name},\n\nPlease confirm this email address by opening the link below. It works once and expires in ${VERIFY_HOURS} hours:\n\n${link}\n\nIf you did not create a Hospi Bazaar account, ignore this email.`,
+    });
+  } catch (e) { console.error('Verification email failed:', e.message); }
+}
+
+// Opening the link signs nobody in; it only marks the email as confirmed.
+router.post('/verify-email', asyncHandler(async (req, res) => {
+  const { token } = z.object({ token: z.string().min(20).max(200) }).parse(req.body);
+  const bad = () => new ApiError(400, 'This verification link is invalid or has expired. Sign in and ask for a new one.');
+  await withTransaction(async (conn) => {
+    const [[r]] = await conn.query(
+      `SELECT ev.id, ev.user_id, ev.used_at, (ev.expires_at > NOW()) AS live, u.email_verified_at
+         FROM email_verifications ev JOIN users u ON u.id = ev.user_id WHERE ev.token_hash = ? FOR UPDATE`, [hashToken(token)]);
+    if (!r) throw bad();
+    // Opening the same link twice (a double click, or a mail scanner) is fine once the email is confirmed.
+    if (r.used_at) { if (r.email_verified_at) return; throw bad(); }
+    if (!r.live) throw bad();
+    await conn.query(`UPDATE users SET email_verified_at = COALESCE(email_verified_at, NOW()) WHERE id = ?`, [r.user_id]);
+    await conn.query(`UPDATE email_verifications SET used_at = NOW() WHERE user_id = ? AND used_at IS NULL`, [r.user_id]);
+    await audit(conn, { actorId: r.user_id, action: 'auth.email_verified', entityType: 'user', entityId: r.user_id, ip: req.ip });
+  });
+  res.json({ ok: true });
+}));
+
+router.post('/resend-verification', authenticate, asyncHandler(async (req, res) => {
+  if (req.user.emailVerified) return res.json({ alreadyVerified: true });
+  const [[last]] = await pool.query(
+    `SELECT TIMESTAMPDIFF(SECOND, MAX(created_at), NOW()) AS age FROM email_verifications WHERE user_id = ?`, [req.user.id]);
+  if (last.age !== null && last.age < RESEND_SECONDS) {
+    throw new ApiError(429, `Please wait ${RESEND_SECONDS - last.age} seconds before asking for another email.`);
+  }
+  await sendVerification(req.user.id, req.user.email, req.user.fullName);
+  res.json({ ok: true });
+}));
 // ------------------------------------------------------------ Login / me
+
 
 const loginSchema = z.object({ email, password: z.string().min(1).max(100) });
 
@@ -275,7 +328,7 @@ router.post('/reset-password', asyncHandler(async (req, res) => {
     const [[r]] = await conn.query(
       `SELECT id, user_id FROM password_resets WHERE token_hash = ? AND used_at IS NULL AND expires_at > NOW() FOR UPDATE`, [hashToken(d.token)]);
     if (!r) throw new ApiError(400, 'This reset link is invalid or has expired. Ask for a new one.');
-    await conn.query(`UPDATE users SET password_hash = ?, password_changed_at = NOW() WHERE id = ?`, [hash, r.user_id]);
+    await conn.query(`UPDATE users SET password_hash = ?, password_changed_at = NOW(), email_verified_at = COALESCE(email_verified_at, NOW()) WHERE id = ?`, [hash, r.user_id]);
     await conn.query(`UPDATE password_resets SET used_at = NOW() WHERE user_id = ? AND used_at IS NULL`, [r.user_id]);
     await audit(conn, { actorId: r.user_id, action: 'auth.password_reset', entityType: 'user', entityId: r.user_id, ip: req.ip });
   });

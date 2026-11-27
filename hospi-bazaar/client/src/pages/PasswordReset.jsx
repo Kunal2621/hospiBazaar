@@ -4,7 +4,7 @@ import { api, ApiError } from '../api.js';
 import { Brand } from '../components/layouts.jsx';
 import { Alert, TextField, useToast } from '../components/ui.jsx';
 
-function Frame({ title, sub, children }) {
+export function Frame({ title, sub, children }) {
   return (
     <div className="auth">
       <aside className="auth__aside">

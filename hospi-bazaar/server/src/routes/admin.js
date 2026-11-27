@@ -89,6 +89,12 @@ async function transitionSupplier(req, { from, apply, action }) {
 
 // POST /api/admin/suppliers/:id/start-verification  Pending -> Under Verification
 router.post('/suppliers/:id/start-verification', requireAdminRole('verifier'), asyncHandler(async (req, res) => {
+    const [[owner]] = await pool.query(
+    `SELECT u.email, u.email_verified_at FROM supplier_users su JOIN users u ON u.id = su.user_id
+      WHERE su.supplier_id = ? AND su.role = 'owner' LIMIT 1`, [idParam(req)]);
+  if (owner && !owner.email_verified_at) {
+    throw new ApiError(409, `${owner.email} has not confirmed their email yet. Ask the supplier to open the link we sent, then start verification.`);
+  }
   const out = await transitionSupplier(req, {
     from: ['pending'], action: 'supplier.verification_started',
     apply: async (conn, id) => {
