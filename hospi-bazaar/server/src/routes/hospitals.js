@@ -24,6 +24,7 @@ router.get('/me', requireHospitalRole(), asyncHandler(async (req, res) => {
 
 // POST /api/hospitals/me/request-verification -> unverified/rejected -> under_review (decision 7)
 router.post('/me/request-verification', requireHospitalRole('hospital_admin', 'purchase_manager'), asyncHandler(async (req, res) => {
+    if (!req.user.emailVerified) throw new ApiError(409, 'Verify your email first. Use the link we sent when you registered, or ask for a new one from the banner at the top of the page.');
   const id = req.user.hospitalId;
   await withTransaction(async (conn) => {
     const [[h]] = await conn.query(`SELECT verification_status FROM hospitals WHERE id = ? FOR UPDATE`, [id]);

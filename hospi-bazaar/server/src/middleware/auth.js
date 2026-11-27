@@ -12,7 +12,7 @@ function signToken(userId) {
 /** Load the user plus their hospital/supplier membership (the "context" used for permissions). */
 async function loadContext(userId) {
   const [[user]] = await pool.query(
-    `SELECT id, full_name, email, mobile, user_type, admin_role, status FROM users WHERE id = ?`,
+        `SELECT id, full_name, email, email_verified_at, mobile, user_type, admin_role, status FROM users WHERE id = ?`,
     [userId]
   );
   if (!user) return null;
@@ -21,6 +21,7 @@ async function loadContext(userId) {
     id: user.id,
     fullName: user.full_name,
     email: user.email,
+    emailVerified: Boolean(user.email_verified_at),
     mobile: user.mobile,
     type: user.user_type,
     adminRole: user.admin_role,

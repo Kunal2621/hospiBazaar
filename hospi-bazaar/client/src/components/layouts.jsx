@@ -4,7 +4,8 @@ import {
   Building2, ClipboardList, FileText, LayoutDashboard, LogOut, Menu, MessagesSquare, Package, ReceiptText, Scale, Settings, ShieldCheck, ShoppingCart, Store, Wallet, Wrench, X,
 } from 'lucide-react';
 import { useAuth, homeFor } from '../auth.jsx';
-import { Loading } from './ui.jsx';
+import { Alert, Loading, useToast } from './ui.jsx';
+import { api } from '../api.js';
 import { NotificationBell } from './common.jsx';
 
 export function Brand({ to = '/' }) {
@@ -133,6 +134,35 @@ export function RequireType({ type }) {
   return <AppShell />;
 }
 
+function VerifyEmailBanner() {
+  const { user, refresh } = useAuth();
+  const toast = useToast();
+  const [busy, setBusy] = useState(false);
+  // Looks again whenever the person comes back to this tab, so confirming in another tab clears the banner.
+  useEffect(() => {
+    if (!user || user.type === 'admin' || user.emailVerified) return undefined;
+    const again = () => { if (document.visibilityState === 'visible') refresh(); };
+    document.addEventListener('visibilitychange', again);
+    return () => document.removeEventListener('visibilitychange', again);
+  }, [user, refresh]);
+  if (!user || user.type === 'admin' || user.emailVerified) return null;
+
+  async function resend() {
+    setBusy(true);
+    try { await api('/auth/resend-verification', { method: 'POST' }); toast(`Email sent to ${user.email}`); }
+    catch (e) { toast(e.message, 'bad'); }
+    finally { setBusy(false); }
+  }
+  return (
+    <div style={{ marginBottom: '1rem' }}>
+      <Alert kind="warn">
+        Confirm your email address. We sent a link to <strong>{user.email}</strong>.{' '}
+        <button type="button" className="text-button" onClick={resend} disabled={busy}>{busy ? 'Sending…' : 'Send it again'}</button>
+      </Alert>
+    </div>
+  );
+}
+
 function AppShell() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
@@ -189,6 +219,7 @@ function AppShell() {
         </div>
         <div className="shell__content">
           <div className="topline"><NotificationBell homePath={homeFor(user)} /></div>
+                    <VerifyEmailBanner />
           <Outlet />
         </div>
       </div>
