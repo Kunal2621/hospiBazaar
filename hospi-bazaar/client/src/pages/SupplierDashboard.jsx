@@ -3,7 +3,7 @@ import { ExternalLink, FileText } from 'lucide-react';
 import { api, ApiError } from '../api.js';
 import { Link } from 'react-router-dom';
 import { Alert, Loading, StatusBadge, Timeline, useToast } from '../components/ui.jsx';
-import { Stat } from '../components/common.jsx';
+import {FileLink , Stat } from '../components/common.jsx';
 import { inr, useAutoRefresh, useLoad } from '../lib.js';
 
 const STATUS_COPY = {
@@ -111,7 +111,7 @@ export default function SupplierDashboard() {
             <ul className="doc-list">
               {data.documents.map((d) => (
                 <li key={d.id} className="doc-list__item">
-                  <a className="doc-list__link" href={d.file_url} target="_blank" rel="noreferrer"><FileText size={16} aria-hidden /> {label(d.document_type)}</a>
+                <FileLink className="doc-list__link" url={d.file_url}><FileText size={16} aria-hidden /> {label(d.document_type)}</FileLink>
                   <ExternalLink size={14} aria-hidden className="muted" />
                 </li>
               ))}

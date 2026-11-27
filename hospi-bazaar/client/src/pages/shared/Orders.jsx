@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { api, ApiError } from '../../api.js';
 import { dateText, dateTimeText, inr, label, useLoad } from '../../lib.js';
 import { Alert, Dialog, Loading, SelectField, TextField, Timeline, useToast } from '../../components/ui.jsx';
-import { Empty, Facts, FileField, PageHead, ReasonDialog, StateBadge } from '../../components/common.jsx';
+import { Empty, Facts, FileField,FileLink, PageHead, ReasonDialog, StateBadge } from '../../components/common.jsx';
 
 const FILTERS = [['', 'All'], ['pending_supplier_confirmation', 'Waiting for supplier'], ['payment_pending', 'Payment due'], ['paid', 'Paid'], ['dispatched', 'Dispatched'], ['delivered', 'Delivered'], ['completed', 'Completed'], ['cancelled', 'Cancelled']];
 
@@ -177,7 +177,7 @@ export function OrderDetail({ base }) {
           <Facts rows={[['Address', `${o.delivery_address}, ${o.delivery_city}, ${o.delivery_state} ${o.delivery_pincode}`], ['Installation', o.installation_required ? 'Needed' : 'Not needed'],
             ['Carrier', delivery?.carrier_name], ['Tracking', delivery?.tracking_reference], ['Dispatched', dateText(delivery?.dispatched_at)], ['Delivered', dateText(delivery?.delivered_at)],
             ['Installed', dateText(delivery?.installed_at)], ['Supplier invoice', o.supplier_invoice_number], ['Payment terms', o.payment_terms]]} />
-          {o.supplier_invoice_url && <a href={o.supplier_invoice_url} target="_blank" rel="noreferrer">View supplier invoice</a>}
+          {o.supplier_invoice_url && <FileLink url={o.supplier_invoice_url}>View supplier invoice</FileLink>}
         </section>
         <section className="panel"><h2 style={{ fontSize: '1.1rem' }}>Payment</h2>
           {payments.length === 0 ? <p className="muted">No payment yet.</p> : (

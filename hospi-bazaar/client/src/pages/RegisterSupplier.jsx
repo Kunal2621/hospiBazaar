@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { api, ApiError } from '../api.js';
 import { useAuth, homeFor } from '../auth.jsx';
 import { Wizard, StepPanel } from '../components/Wizard.jsx';
+import { FileField } from '../components/common.jsx';
 import { Alert, AreaField, CheckField, SelectField, TextField, focusFirstError, useFields } from '../components/ui.jsx';
 
 const STEPS = [
@@ -231,15 +232,17 @@ export default function RegisterSupplier() {
                 {t('Account holder name', 'account_holder_name')}
                 {t('Account number', 'account_number', { inputMode: 'numeric' })}
                 {t('IFSC', 'ifsc', { maxLength: 11, placeholder: 'HDFC0001234' })}
-                {t('Cancelled cheque (link)', 'cancelled_cheque_url', { placeholder: 'https://', hint: 'File upload is coming. For now, paste a link.' })}
+                 <FileField label="Cancelled cheque" registration value={values.cancelled_cheque_url} error={err('cancelled_cheque_url')}
+                  hint="PDF, JPG or PNG, up to 10 MB. Only our verification team can open it."
+                  onChange={(url) => bind('cancelled_cheque_url').onChange({ target: { value: url } })} />
               </div>
               <div className="reg__section">
                 <h3 className="reg__section-title">Supporting documents</h3>
                 {err('documents') && <span className="field__error">{err('documents')}</span>}
                 <div className="form-grid">
                   {DOC_FIELDS.filter((d) => !d.show || d.show(values)).map((d) => (
-                    <TextField key={d.type} label={d.label} optional={d.optional} placeholder="https://" value={docUrls[d.type] || ''}
-                      onChange={(e) => setDocUrls((u) => ({ ...u, [d.type]: e.target.value }))} />
+                  <FileField key={d.type} label={`${d.label}${d.optional ? ' (optional)' : ''}`} registration value={docUrls[d.type] || ''}
+                      onChange={(url) => setDocUrls((u) => ({ ...u, [d.type]: url }))} />
                   ))}
                 </div>
               </div>

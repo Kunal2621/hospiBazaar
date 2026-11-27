@@ -4,6 +4,7 @@ import { Check, ExternalLink, FileText } from 'lucide-react';
 import { api, ApiError } from '../api.js';
 import { useAuth } from '../auth.jsx';
 import { Alert, AreaField, Dialog, Loading, StatusBadge, useToast } from '../components/ui.jsx';
+import { FileLink } from '../components/common.jsx';
 import { useAutoRefresh } from '../lib.js';
 
 const label = (s) => s.replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase());
@@ -146,6 +147,7 @@ function SupplierReview({ id, onDone }) {
         <dt>Address</dt><dd>{s.registered_address}, {s.city}, {s.state} {s.pincode}</dd>
         <dt>Contact</dt><dd>{s.phone}, {s.email}</dd>
         <dt>Bank</dt><dd>{d.bank_accounts.map((b) => `${b.account_holder_name}, ${b.account_number}, ${b.ifsc}`).join('; ') || 'None'}</dd>
+        <dt>Cancelled cheque</dt><dd>{d.bank_accounts.filter((b) => b.cancelled_cheque_url).map((b) => <FileLink key={b.cancelled_cheque_url} className="doc-list__link" url={b.cancelled_cheque_url}><FileText size={16} aria-hidden /> View cheque</FileLink>)}{d.bank_accounts.length === 0 && 'None'}</dd>
         <dt>Terms accepted</dt><dd>{d.terms_acceptances.map((t) => `Version ${t.version} on ${new Date(t.accepted_at).toLocaleDateString('en-IN')}`).join(', ') || 'Not accepted'}</dd>
       </dl>
 
@@ -160,7 +162,7 @@ function SupplierReview({ id, onDone }) {
         <ul className="doc-list">
           {d.documents.map((x) => (
             <li key={x.id} className="doc-list__item">
-              <a className="doc-list__link" href={x.file_url} target="_blank" rel="noreferrer"><FileText size={16} aria-hidden /> {label(x.document_type)}</a>
+             <FileLink className="doc-list__link" url={x.file_url}><FileText size={16} aria-hidden /> {label(x.document_type)}</FileLink>
               <ExternalLink size={14} aria-hidden className="muted" />
             </li>
           ))}

@@ -2,7 +2,8 @@
 
 const express = require('express');
 const { pool, withTransaction } = require('../db');
-const { z, url } = require('../utils/validation');
+const { z, fileRef } = require('../utils/validation');
+const { attachPrivate } = require('../services/fileAccess');
 const { ApiError, asyncHandler } = require('../utils/errors');
 const { audit } = require('../utils/audit');
 const { authenticate, requireType } = require('../middleware/auth');
@@ -46,13 +47,15 @@ const docSchema = z.object({
     'business_proof', 'factory_license', 'udyam', 'trademark', 'iso_13485', 'cdsco_licence',
     'dealer_authorisation', 'distribution_agreement', 'sourcing_invoice', 'cancelled_cheque', 'service_proof', 'other',
   ]),
-  file_url: url,
+  file_url: fileRef,
   valid_until: z.preprocess((v) => (v === '' ? undefined : v), z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional()),
 });
 
 router.post('/me/documents', asyncHandler(async (req, res) => {
+  
   const id = supplierIdOf(req);
   const d = docSchema.parse(req.body);
+    await attachPrivate(pool, [d.file_url], req.user.id);
   const [r] = await pool.query(
     `INSERT INTO supplier_documents (supplier_id, document_type, file_url, valid_until) VALUES (?, ?, ?, ?)`,
     [id, d.document_type, d.file_url, d.valid_until ?? null]

@@ -23,6 +23,8 @@ const gstin = z.preprocess(
 );
 const ifsc = z.preprocess(upper, z.string().regex(/^[A-Z]{4}0[A-Z0-9]{6}$/, 'Invalid IFSC'));
 const url = z.preprocess(trimmed, z.string().url('Must be a valid URL').max(500));
+// An uploaded file (/files/... private, /uploads/... public) or, for older data, a web link.
+const fileRef = z.preprocess(trimmed, z.string().max(500).regex(/^(\/(files|uploads)\/[a-f0-9]{32}\.[a-z]+|https?:\/\/\S+)$/, 'Upload a file'));
 const password = z
   .string()
   .min(8, 'At least 8 characters')
@@ -37,4 +39,4 @@ const userSchema = z.object({
   password,
 });
 
-module.exports = { z, str, optionalStr, email, mobile, phone, pincode, pan, gstin, ifsc, url, password, userSchema };
+module.exports = { z, str, optionalStr, email, mobile, phone, pincode, pan, gstin, ifsc, url,fileRef, password, userSchema };

@@ -4,12 +4,13 @@ const crypto = require('crypto');
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const { pool, withTransaction } = require('../db');
-const { z, str, optionalStr, email, phone, pincode, pan, gstin, ifsc, url,password: passwordRule, userSchema } = require('../utils/validation');
+const { z, str, optionalStr, email, phone, pincode, pan, gstin, ifsc, url, fileRef, password: passwordRule, userSchema } = require('../utils/validation');
 const { ApiError, asyncHandler } = require('../utils/errors');
 const { audit } = require('../utils/audit');
 const config = require('../config');
 const { sendMail } = require('../services/mailer');
 const notify = require('../services/notify');
+const { attachPrivate } = require('../services/fileAccess');
 const { signToken, loadContext, authenticate } = require('../middleware/auth');
 
 const router = express.Router();
@@ -132,11 +133,11 @@ const supplierSchema = z.object({
     account_holder_name: str(200),
     account_number: z.preprocess((v) => (typeof v === 'string' ? v.trim() : v), z.string().regex(/^\d{6,20}$/, 'Invalid account number')),
     ifsc,
-    cancelled_cheque_url: url,
+    cancelled_cheque_url: fileRef,
   }),
   documents: z.array(z.object({
     document_type: z.enum(SUPPLIER_DOC_TYPES),
-    file_url: url,
+    file_url: fileRef,
     valid_until: z.preprocess((v) => (v === '' ? undefined : v), z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional()),
   })).max(30).default([]),
   terms_accepted: termsTrue,
@@ -209,7 +210,7 @@ router.post('/register/supplier', asyncHandler(async (req, res) => {
         [supplierId, d.document_type, d.file_url, d.valid_until ?? null]
       );
     }
-
+      await attachPrivate(conn, [body.bank.cancelled_cheque_url, ...body.documents.map((d) => d.file_url)], ur.insertId);
     await conn.query(
       `INSERT INTO terms_acceptances (terms_version_id, supplier_id, accepted_by, ip_address) VALUES (?, ?, ?, ?)`,
       [await latestTerms(conn, 'supplier'), supplierId, ur.insertId, req.ip]
