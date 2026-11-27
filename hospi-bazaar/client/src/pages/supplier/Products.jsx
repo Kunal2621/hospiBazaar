@@ -141,7 +141,7 @@ export function ProductForm() {
             <div className="tag-list">
               {images.map((u) => <span key={u} className="tag"><a href={u} target="_blank" rel="noreferrer">Photo</a> <button type="button" className="text-button small" onClick={() => setImages(images.filter((x) => x !== u))}>Remove</button></span>)}
             </div>
-            {images.length < 8 && <FileField label="Add a photo" value="" accept=".jpg,.jpeg,.png,.webp" onChange={(url) => setImages([...images, url])} hint="Up to 8 photos. The first is the cover." error={errs.images} />}
+            {images.length < 8 && <FileField label="Add a photo" value="" visibility="public" accept=".jpg,.jpeg,.png,.webp" onChange={(url) => setImages([...images, url])} hint="Up to 8 photos. The first is the cover." error={errs.images} />}
             <div className="tag-list">
               {docs.map((d) => <span key={d.file_url} className="tag"><a href={d.file_url} target="_blank" rel="noreferrer">{label(d.document_type)}</a> <button type="button" className="text-button small" onClick={() => setDocs(docs.filter((x) => x !== d))}>Remove</button></span>)}
             </div>
@@ -159,7 +159,7 @@ function DocAdder({ onAdd }) {
   return (
     <div className="form-grid" style={{ alignItems: 'end' }}>
       <SelectField label="Document type" value={type} onChange={(e) => setType(e.target.value)}>{['brochure', 'datasheet', 'certificate', 'manual', 'other'].map((t) => <option key={t} value={t}>{label(t)}</option>)}</SelectField>
-      <FileField label="Add a document" value="" onChange={(url) => onAdd({ document_type: type, file_url: url })} accept=".pdf,.jpg,.jpeg,.png" />
+      <FileField label="Add a document" value="" visibility="public" onChange={(url) => onAdd({ document_type: type, file_url: url })} accept=".pdf,.jpg,.jpeg,.png" />
     </div>
   );
 }

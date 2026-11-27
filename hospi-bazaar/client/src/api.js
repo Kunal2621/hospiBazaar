@@ -29,14 +29,19 @@ export async function api(path, { method = 'GET', body } = {}) {
   return data;
 }
 
-/** Upload one file (pdf, jpeg, png, webp up to 10 MB). Resolves to { url, name }. */
-export async function uploadFile(file) {
+/**
+ * Upload one file (pdf, jpeg, png, webp up to 10 MB). Resolves to { url, name }.
+ * Files are private by default. Pass visibility 'public' for product photos and brochures.
+ * Pass registration: true while signing up, before there is an account.
+ */
+export async function uploadFile(file, { visibility = 'private', registration = false } = {}) {
   const form = new FormData();
   form.append('file', file);
   const token = getToken();
+  const path = registration ? '/api/uploads/registration' : `/api/uploads?visibility=${visibility}`;
   let res;
   try {
-    res = await fetch('/api/uploads', { method: 'POST', headers: token ? { Authorization: `Bearer ${token}` } : {}, body: form });
+    res = await fetch(path,  { method: 'POST', headers: token ? { Authorization: `Bearer ${token}` } : {}, body: form });
   } catch {
     throw new ApiError(0, { error: 'Cannot reach the server. Please try again.' });
   }

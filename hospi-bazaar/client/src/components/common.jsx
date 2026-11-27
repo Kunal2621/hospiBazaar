@@ -87,7 +87,32 @@ export function ReasonDialog({ open, onClose, title, prompt, confirmText, danger
 }
 
 /** File picker that uploads straight away and reports the stored URL. */
-export function FileField({ label: text, value, onChange, hint, accept = '.pdf,.jpg,.jpeg,.png,.webp', error }) {
+/**
+ * Link to a stored file. Private files (/files/...) need a short-lived link from the server,
+ * which is only given to people who may open them; public files and web links open directly.
+ */
+export function FileLink({ url, children, className }) {
+  const toast = useToast();
+  const [busy, setBusy] = useState(false);
+  if (!url || !url.startsWith('/files/')) return <a href={url} target="_blank" rel="noreferrer" className={className}>{children}</a>;
+  async function open(e) {
+    e.preventDefault();
+    const tab = window.open('', '_blank'); // opened first, so the browser does not block it
+    setBusy(true);
+    try {
+      const out = await api(`/uploads/link/${url.replace('/files/', '')}`);
+      if (tab) tab.location.href = out.url; else window.location.href = out.url;
+    } catch (err) { tab?.close(); toast(err.message, 'bad'); } finally { setBusy(false); }
+  }
+  return <a href={url} onClick={open} className={className} aria-busy={busy}>{children}</a>;
+}
+
+/**
+ * File picker that uploads straight away and reports the stored URL.
+ * visibility: 'private' (default) or 'public' for product photos and brochures.
+ * registration: true on sign-up pages, where there is no account yet (the file cannot be previewed until the account exists).
+ */
+export function FileField({ label: text, value, onChange, hint, accept = '.pdf,.jpg,.jpeg,.png,.webp', error, visibility = 'private', registration = false }) {
   const ref = useRef(null);
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState('');
@@ -95,7 +120,7 @@ export function FileField({ label: text, value, onChange, hint, accept = '.pdf,.
     const file = e.target.files?.[0];
     if (!file) return;
     setBusy(true); setProblem('');
-    try { const out = await uploadFile(file); onChange(out.url, file.name); } catch (err) { setProblem(err.message); } finally { setBusy(false); e.target.value = ''; }
+    try { const out = await uploadFile(file, { visibility, registration }); onChange(out.url, file.name); } catch (err) { setProblem(err.message); } finally { setBusy(false); e.target.value = ''; }
   }
   return (
     <div className="field">
@@ -104,7 +129,8 @@ export function FileField({ label: text, value, onChange, hint, accept = '.pdf,.
         <button type="button" className="btn btn--quiet btn--small" onClick={() => ref.current?.click()} disabled={busy}>
           <Upload size={16} aria-hidden /> {busy ? 'Uploading…' : value ? 'Replace file' : 'Choose file'}
         </button>
-        {value && <a href={value} target="_blank" rel="noreferrer" className="doc-list__link"><Paperclip size={16} aria-hidden /> View file</a>}
+               {value && registration && <span className="doc-list__link"><Paperclip size={16} aria-hidden /> File added</span>}
+        {value && !registration && <FileLink url={value} className="doc-list__link"><Paperclip size={16} aria-hidden /> View file</FileLink>}
         <input ref={ref} type="file" accept={accept} onChange={pick} hidden />
       </div>
       {hint && !problem && !error && <span className="field__hint">{hint}</span>}

@@ -10,6 +10,7 @@ const { ApiError, asyncHandler } = require('../utils/errors');
 const { audit } = require('../utils/audit');
 const settings = require('../services/settings');
 const notify = require('../services/notify');
+const { attachPrivate } = require('../services/fileAccess');
 const orders = require('../services/orders');
 const payments = require('../services/payments');
 const { authenticate } = require('../middleware/auth');
@@ -139,7 +140,7 @@ router.post('/:id/reject', asyncHandler(async (req, res) => {
 const dispatchSchema = z.object({
   carrier_name: str(150), tracking_reference: optionalStr(150),
   supplier_invoice_number: str(60),
-  supplier_invoice_url: z.preprocess((v) => (v === '' ? undefined : v), z.string().max(500).regex(/^(\/uploads\/[a-f0-9]+\.[a-z]+|https?:\/\/\S+)$/).optional()),
+  supplier_invoice_url: z.preprocess((v) => (v === '' ? undefined : v), z.string().max(500).regex(/^(\/(files|uploads)\/[a-f0-9]{32}\.[a-z]+|https?:\/\/\S+)$/).optional()),
   notes: optionalStr(1000),
 });
 
@@ -148,6 +149,7 @@ router.post('/:id/dispatch', asyncHandler(async (req, res) => {
   await withTransaction(async (conn) => {
     const { o, sc } = await loadOrder(conn, req, { lock: true });
     requireSide(sc, 'supplier'); mustBe(o, 'paid');
+    await attachPrivate(conn, [d.supplier_invoice_url], req.user.id);
     const [[big]] = await conn.query(`SELECT COUNT(*) AS n FROM order_items oi JOIN products p ON p.id = oi.product_id WHERE oi.order_id = ? AND p.logistics_type = 'large_equipment'`, [o.id]);
     const type = big.n > 0 ? 'large_equipment' : 'small_parcel';
     await conn.query('UPDATE orders SET supplier_invoice_number = ?, supplier_invoice_url = ? WHERE id = ?', [d.supplier_invoice_number, d.supplier_invoice_url ?? null, o.id]);
